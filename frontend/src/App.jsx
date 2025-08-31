@@ -1,28 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import TaskList from './components/TaskList';
-import TaskForm from './components/TaskForm';
+import TaskList from './components/TaskList.jsx';
+import TaskForm from './components/TaskForm.jsx';
+import EditTaskModal from './components/EditTaskModal.jsx';
 import './App.css';
 
-const API_URL = 'http://localhost:5001/api/tasks';
+const API_URL = '/api/tasks';
 
-const App = () => {
+function App() {
   const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [editingTask, setEditingTask] = useState(null);
 
   useEffect(() => {
-    getTasks();
+    fetchTasks();
   }, []);
 
-  const getTasks = async () => {
-    setLoading(true);
+  const fetchTasks = async () => {
+    setError(null);
     try {
-      const res = await axios.get(API_URL);
-      setTasks(res.data);
+      const { data } = await axios.get(API_URL);
+      setTasks(data);
     } catch (err) {
-      console.error(err);
-      setError('Failed to fetch tasks.');
+      setError('Failed to fetch tasks. Make sure the backend server is running.');
     } finally {
       setLoading(false);
     }
@@ -32,59 +33,71 @@ const App = () => {
     setLoading(true);
     setError(null);
     try {
-      console.log('Adding task:', task);
-      const res = await axios.post(API_URL, task);
-      console.log('Task added successfully:', res.data);
-      setTasks([...tasks, res.data]);
+      const { data } = await axios.post(API_URL, task);
+      setTasks([...tasks, data]);
     } catch (err) {
-      console.error('Error adding task:', err);
-      console.error('Error response:', err.response);
-      setError('Failed to add task. Please try again.');
+      setError('Failed to add task');
     } finally {
       setLoading(false);
     }
   };
 
-  const updateTask = async (id, updatedTask) => {
+  const updateTask = async (taskToUpdate) => {
+    setError(null);
     try {
-      const res = await axios.put(`${API_URL}/${id}`, updatedTask);
+      const { data: updatedTask } = await axios.put(
+        `${API_URL}/${taskToUpdate._id}`,
+        taskToUpdate
+      );
       setTasks(
-        tasks.map((task) => (task._id === id ? res.data : task))
+        tasks.map((task) => (task._id === updatedTask._id ? updatedTask : task))
       );
     } catch (err) {
-      console.error(err);
-      setError('Failed to update task.');
+      setError('Failed to update task');
     }
   };
 
   const deleteTask = async (id) => {
+    setError(null);
+    const originalTasks = [...tasks];
     try {
-      await axios.delete(`${API_URL}/${id}`);
       setTasks(tasks.filter((task) => task._id !== id));
+      await axios.delete(`${API_URL}/${id}`);
     } catch (err) {
-      console.error(err);
-      setError('Failed to delete task.');
+      setTasks(originalTasks);
+      setError('Failed to delete task');
     }
   };
 
-  const markAsDone = (id) => {
-    setTasks(tasks.filter((task) => task._id !== id));
-  };
-
   return (
-    <div className="App">
+    <div className="container">
       <h1>Task Manager</h1>
-      <TaskForm addTask={addTask} loading={loading} />
-      {loading && <p>Loading...</p>}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <TaskList
-        tasks={tasks}
-        updateTask={updateTask}
-        deleteTask={deleteTask}
-        markAsDone={markAsDone}
-      />
+      <TaskForm addTask={addTask} />
+      {error && <p className="error">{error}</p>}
+      {loading ? (
+        <p>Loading...</p>
+      ) : (
+        <TaskList
+          tasks={tasks}
+          onDelete={deleteTask}
+          onEdit={(task) => setEditingTask(task)}
+          onToggleComplete={(task) =>
+            updateTask({ ...task, completed: !task.completed })
+          }
+        />
+      )}
+      {editingTask && (
+        <EditTaskModal
+          task={editingTask}
+          onClose={() => setEditingTask(null)}
+          onSave={(updatedTask) => {
+            updateTask(updatedTask);
+            setEditingTask(null);
+          }}
+        />
+      )}
     </div>
   );
-};
+}
 
 export default App;

@@ -1,0 +1,98 @@
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import TaskList from './components/TaskList.jsx';
+import TaskForm from './components/TaskForm.jsx';
+import EditTaskModal from './components/EditTaskModal.jsx'; // ADDED
+import './App.css';
+
+const API_URL = '/api/tasks'; // MODIFIED: Use relative URL for proxy
+
+function App() {
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [editingTask, setEditingTask] = useState(null); // ADDED: State for modal
+
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const fetchTasks = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data } = await axios.get(API_URL);
+      setTasks(data);
+    } catch (err) {
+      setError('Failed to fetch tasks. Make sure the backend server is running.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addTask = async (task) => {
+    try {
+      const { data } = await axios.post(API_URL, task);
+      setTasks([...tasks, data]);
+    } catch (err) {
+      setError('Failed to add task');
+    }
+  };
+
+  // ADDED: Function to handle task updates (edit & complete)
+  const updateTask = async (taskToUpdate) => {
+    try {
+      const { data: updatedTask } = await axios.put(
+        `${API_URL}/${taskToUpdate._id}`,
+        taskToUpdate
+      );
+      setTasks(
+        tasks.map((task) => (task._id === updatedTask._id ? updatedTask : task))
+      );
+    } catch (err) {
+      setError('Failed to update task');
+    }
+  };
+
+  // ADDED: Function to handle task deletion
+  const deleteTask = async (id) => {
+    try {
+      await axios.delete(`${API_URL}/${id}`);
+      setTasks(tasks.filter((task) => task._id !== id));
+    } catch (err) {
+      setError('Failed to delete task');
+    }
+  };
+
+  return (
+    <div className="container">
+      <h1>Task Manager</h1>
+      <TaskForm addTask={addTask} />
+      {error && <p className="error">{error}</p>}
+      {loading ? (
+        <p>Loading tasks...</p>
+      ) : (
+        <TaskList
+          tasks={tasks}
+          onDelete={deleteTask}
+          onEdit={(task) => setEditingTask(task)}
+          onToggleComplete={(task) =>
+            updateTask({ ...task, completed: !task.completed })
+          }
+        />
+      )}
+      {editingTask && (
+        <EditTaskModal
+          task={editingTask}
+          onClose={() => setEditingTask(null)}
+          onSave={(updatedTask) => {
+            updateTask(updatedTask);
+            setEditingTask(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+export default App;
