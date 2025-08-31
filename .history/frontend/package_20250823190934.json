@@ -1,0 +1,6 @@
+"scripts": {
+  "start": "webpack serve --mode development --open",
+  "dev": "vite",
+  "build": "vite build",
+  "preview": "vite preview"
+}
